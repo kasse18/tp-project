@@ -2,6 +2,9 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
+
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
@@ -16,17 +19,30 @@ func New(ctx context.Context, connStr string) *DB {
 		panic(err)
 	}
 
-	conn, err := db.Conn(ctx)
+	tx, err := db.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = conn.ExecContext(ctx, queryInitUsers)
-	if err != nil {
-		panic(err)
+	queries := []string{
+		queryInitUsers,
+		queryInitTattoos,
+		queryInitCart,
+		queryInitOrders,
+		queryInitOrderItems,
+		queryInitTags,
+		queryInitTattooTags,
 	}
 
-	_, err = conn.ExecContext(ctx, queryInitTattoos)
+	for _, query := range queries {
+		_, err := tx.ExecContext(ctx, query)
+		if err != nil {
+			tx.Rollback()
+			panic(fmt.Errorf("failed to execute query: %v\nQuery: %s", err, query))
+		}
+	}
+
+	err = tx.Commit()
 	if err != nil {
 		panic(err)
 	}
