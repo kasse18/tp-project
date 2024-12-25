@@ -4,51 +4,25 @@ import (
 	"context"
 	"fmt"
 	"github.com/jmoiron/sqlx"
-	"go.uber.org/zap"
 	"tp-project/internal/models/user"
 	"tp-project/pkg/logger"
 )
 
 const (
-	queryUsers = "SELECT id, login, password, email FROM users"
-	queryUser  = "SELECT id, login, password, email FROM users WHERE id = $1"
-	queryLogin = "SELECT id, login, password, email FROM users WHERE login = $1"
-
-	queryCreateUser = "INSERT INTO users (login, password, email) VALUES ($1, $2, $3) RETURNING id"
-	queryUpdateUser = "UPDATE users SET login = $1, password = $2, email = $3 WHERE id = $4"
-	queryDeleteUser = "DELETE FROM users WHERE id = $1"
-
-	queryGetUserByEmail = "SELECT id, login, password, email FROM users WHERE email = $1"
+	queryGetUsers          = "SELECT id, login, password, email FROM users"
+	queryGetUser           = "SELECT id, login, password, email FROM users WHERE id = $1"
+	queryLogin             = "SELECT id, login, password, email FROM users WHERE login = $1"
+	queryCreateUser        = "INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id"
+	queryGetUserByID       = "SELECT id, username, email, role, created_at FROM users WHERE id = $1"
+	queryUpdateUser        = "UPDATE users SET username = $1, email = $2, password = $3, role = $4 WHERE id = $5"
+	queryDeleteUser        = "DELETE FROM users WHERE id = $1"
+	queryGetUserByUsername = "SELECT id, username, email, role, created_at FROM users WHERE username = $1"
+	queryGetUserByEmail    = "SELECT id, username, email, role, created_at FROM users WHERE email = $2"
 )
 
 type User struct {
 	db     *sqlx.DB
 	logger logger.Logger
-}
-
-func (u *User) GetAllUsers(ctx context.Context) ([]models.User, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (u *User) CreateUser(ctx context.Context, user models.User) (int, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (u *User) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (u *User) UpdateUser(ctx context.Context, user models.User) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (u *User) DeleteUser(ctx context.Context, id int) error {
-	//TODO implement me
-	panic("implement me")
 }
 
 func InitUserRepo(db *sqlx.DB, logger logger.Logger) *User {
@@ -58,23 +32,100 @@ func InitUserRepo(db *sqlx.DB, logger logger.Logger) *User {
 	}
 }
 
-func (u *User) GetUserByID(ctx context.Context, id int) (*models.User, error) {
-	u.logger.Info(ctx, "Starting GetAll operation")
-	out := models.User{}
+func (u User) GetAllUsers(ctx context.Context) ([]models.User, error) {
+	//TODO implement me
+	panic("implement me")
+}
 
-	if err := u.db.PingContext(ctx); err != nil {
-		u.logger.Error(ctx, "Failed to connect to database", zap.Error(err))
-		return nil, fmt.Errorf("database connection failed: %w", err)
-	}
-
-	row, err := u.db.QueryContext(ctx, queryUser)
+func (u User) CreateUser(ctx context.Context, user models.User) (int, error) {
+	var newUserID int
+	err := u.db.GetContext(ctx, &newUserID, queryCreateUser, user.Username, user.Email, user.Password, user.Role)
 	if err != nil {
-		u.logger.Error(ctx, "Failed to execute query", zap.Error(err))
-		return nil, err
+		return 0, fmt.Errorf("failed to create user: %w", err)
 	}
+	return newUserID, nil
+}
 
-	if err := row.Scan(&out.ID, &out.Login, &out.Password, &out.Email); err != nil {
-		u.logger.Error(ctx, "failed to scan row", zap.Error(err))
+func (u User) GetUserByID(ctx context.Context, userID int) (*models.User, error) {
+	var user models.User
+	err := u.db.GetContext(ctx, &user, queryGetUserByID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by ID: %w", err)
 	}
-	return &out, nil
+	return &user, nil
+}
+
+func (u User) UpdateUser(ctx context.Context, userID int, user models.User) error {
+	result, err := u.db.ExecContext(ctx, queryUpdateUser, user.Username, user.Email, user.Password, user.Role, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update user: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected during user deletion: %w", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("no rows affected during user update")
+	}
+	return nil
+}
+
+func (u User) DeleteUser(ctx context.Context, userID int) error {
+	result, err := u.db.ExecContext(ctx, queryDeleteUser, userID)
+	if err != nil {
+		return fmt.Errorf("failed to delete user: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected during user deletion: %w", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("no rows affected during user deletion")
+	}
+	return nil
+}
+
+func (u User) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
+	var user models.User
+	err := u.db.GetContext(ctx, &user, queryGetUserByUsername, username)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by username: %w", err)
+	}
+	return &user, nil
+}
+
+func (u User) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
+	var user models.User
+	err := u.db.GetContext(ctx, &user, queryGetUserByEmail, email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by email: %w", err)
+	}
+	return &user, nil
+}
+
+func (u User) GetUser(ctx context.Context, userID int) (*models.User, error) {
+	var user models.User
+	err := u.db.GetContext(ctx, &user, queryGetUser, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by ID: %w", err)
+	}
+	return &user, nil
+}
+
+func (u User) Login(ctx context.Context, login string) (*models.User, error) {
+	var user models.User
+	err := u.db.GetContext(ctx, &user, queryLogin, login)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by login: %w", err)
+	}
+	return &user, nil
+}
+
+func (u User) GetUsers(ctx context.Context) ([]models.User, error) {
+	var users []models.User
+	err := u.db.SelectContext(ctx, &users, queryGetUsers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get users: %w", err)
+	}
+	return users, nil
 }
