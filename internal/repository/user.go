@@ -11,7 +11,7 @@ import (
 const (
 	queryGetUsers          = "SELECT id, login, password, email FROM users"
 	queryGetUser           = "SELECT id, login, password, email FROM users WHERE id = $1"
-	queryLogin             = "SELECT id, login, password, email FROM users WHERE login = $1"
+	queryGetByLogin        = "SELECT id, login, password, email FROM users WHERE login = $1"
 	queryCreateUser        = "INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id"
 	queryGetUserByID       = "SELECT id, username, email, role, created_at FROM users WHERE id = $1"
 	queryUpdateUser        = "UPDATE users SET username = $1, email = $2, password = $3, role = $4 WHERE id = $5"
@@ -55,8 +55,8 @@ func (u User) GetUserByID(ctx context.Context, userID int) (*models.User, error)
 	return &user, nil
 }
 
-func (u User) UpdateUser(ctx context.Context, userID int, user models.User) error {
-	result, err := u.db.ExecContext(ctx, queryUpdateUser, user.Username, user.Email, user.Password, user.Role, userID)
+func (u User) UpdateUser(ctx context.Context, user models.User) error {
+	result, err := u.db.ExecContext(ctx, queryUpdateUser, user.Username, user.Email, user.Password, user.Role, user.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
 	}
@@ -114,7 +114,7 @@ func (u User) GetUser(ctx context.Context, userID int) (*models.User, error) {
 
 func (u User) Login(ctx context.Context, login string) (*models.User, error) {
 	var user models.User
-	err := u.db.GetContext(ctx, &user, queryLogin, login)
+	err := u.db.GetContext(ctx, &user, queryGetByLogin, login)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user by login: %w", err)
 	}
