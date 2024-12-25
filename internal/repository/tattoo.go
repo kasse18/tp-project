@@ -15,6 +15,7 @@ const (
 	queryGetAllTattoos = "SELECT * FROM tattoos ORDER BY id"
 	queryGetTattooTags = "SELECT tag_id FROM tattoo_tags WHERE tattoo_id = $1"
 	queryGetTagByID    = "SELECT name FROM tags WHERE id = $1"
+	queryGetAllTags    = "SELECT name FROM tags"
 )
 
 type Tattoo struct {
@@ -82,4 +83,22 @@ func (t Tattoo) GetTagByName(ctx context.Context, tagName string) (*string, erro
 		return nil, err
 	}
 	return tn, nil
+}
+
+func (t Tattoo) GetAllTags(ctx context.Context) ([]string, error) {
+	var tags []string
+	err := t.db.SelectContext(ctx, &tags, queryGetAllTags)
+	if err != nil {
+		return nil, err
+	}
+	return tags, nil
+}
+
+func (t Tattoo) GetTattoosByTag(ctx context.Context, tagID int) ([]models.Tattoo, error) {
+	var tattoos []models.Tattoo
+	err := t.db.SelectContext(ctx, &tattoos, queryTattoo, tagID)
+	if err != nil {
+		return nil, err
+	}
+	return tattoos, nil
 }
